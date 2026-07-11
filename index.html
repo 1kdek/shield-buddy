@@ -5,232 +5,254 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <title>Shield Buddy</title>
 
-  <!-- PWA -->
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Shield Buddy">
   <meta name="theme-color" content="#0a0a0f">
-  <meta name="description" content="点击盾牌小人，它会眨眼脸红弹跳！">
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 24px;
       background: #0a0a0f;
       overflow: hidden;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
-      cursor: pointer;
+      font-family: 'Segoe UI', system-ui, sans-serif;
     }
 
-    /* ---- 粒子 ---- */
-    .particle {
-      position: fixed;
-      pointer-events: none;
-      border-radius: 50%;
-      animation: particleFly .7s ease-out forwards;
+    /* ---- 浮动数字 ---- */
+    .float-num {
+      position: fixed; pointer-events: none; font-weight: 900;
+      animation: floatUp .9s cubic-bezier(.15,.6,.35,1) forwards; z-index: 99;
     }
-    @keyframes particleFly {
-      0%   { transform: translate(0, 0) scale(1); opacity: 1; }
-      100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+    @keyframes floatUp {
+      0%   { transform: translateY(0) scale(.6); opacity: 0; }
+      15%  { transform: translateY(-10px) scale(1.2); opacity: 1; }
+      30%  { transform: translateY(-30px) scale(1); opacity: 1; }
+      100% { transform: translateY(-100px) scale(.8); opacity: 0; }
     }
-
-    /* ---- 波纹 ---- */
-    .ripple {
-      position: fixed;
-      pointer-events: none;
-      border: 1.5px solid rgba(255,255,255,.25);
-      border-radius: 50%;
-      animation: rippleOut .7s ease-out forwards;
-    }
-    @keyframes rippleOut {
-      0%   { width: 0; height: 0; opacity: .8; }
-      100% { width: 280px; height: 280px; opacity: 0; margin-left: -140px; margin-top: -140px; }
+    @keyframes floatUpCrit {
+      0%   { transform: translateY(0) scale(.3) rotate(-10deg); opacity: 0; }
+      15%  { transform: translateY(-8px) scale(1.4) rotate(3deg); opacity: 1; }
+      30%  { transform: translateY(-25px) scale(1) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(-110px) scale(.9); opacity: 0; }
     }
 
-    /* ---- 容器 ---- */
-    .badge-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    /* ---- Token 总量 ---- */
+    .total-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 20px 24px; padding-bottom: max(20px, env(safe-area-inset-bottom));
+      background: linear-gradient(0deg, rgba(10,10,15,.95) 60%, rgba(10,10,15,0));
+      display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 10;
     }
+    .total-label { color: rgba(255,255,255,.4); font-size: 13px; letter-spacing: 2px; }
+    .total-value {
+      color: #FFD700; font-size: 28px; font-weight: 800; letter-spacing: 1px;
+      text-shadow: 0 0 20px rgba(255,215,0,.3);
+      transition: transform .15s cubic-bezier(.34,1.56,.64,1);
+      min-width: 80px; text-align: center;
+    }
+    .total-value.pulse { transform: scale(1.15); }
+
+    /* ---- 顶部信息 ---- */
+    .combo-hint {
+      position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
+      color: rgba(255,255,255,.18); font-size: 11px; letter-spacing: 3px; pointer-events: none;
+    }
+
     .badge-wrap svg {
-      width: min(65vw, 360px);
-      height: auto;
-      display: block;
-      transform-origin: center center;
+      width: min(65vw, 360px); height: auto; display: block;
+      transform-origin: center center; cursor: pointer;
     }
 
-    /* ---- 颜色 ---- */
-    .shield-body { fill: #D77757; }
+    .shield-body  { fill: #D77757; }
     .shield-inlay { fill: #000000; }
 
-    /* ---- 眼睛眨眼动画 ---- */
-    .eye-group {
-      transform-origin: var(--origin);
-    }
-
-    /* 自发眨眼：每 4 秒一次 */
-    .eye-auto {
-      animation: blinkAuto 4s ease-in-out infinite;
-    }
+    /* ---- 眨眼 ---- */
+    .eye-group { transform-origin: var(--origin); }
+    .eye-auto  { animation: blinkAuto 4s ease-in-out infinite; }
     @keyframes blinkAuto {
-      0%,   42%   { transform: scaleY(1); }
-      45%,  48%   { transform: scaleY(0.08); }
-      51%,  100%  { transform: scaleY(1); }
+      0%,42% { transform: scaleY(1); }
+      45%,48%{ transform: scaleY(0.08); }
+      51%,100%{ transform: scaleY(1); }
     }
-
-    /* 点击强制眨眼 */
-    .eye-click {
-      animation: blinkClick .25s ease-in-out forwards;
-    }
+    .eye-click { animation: blinkClick .25s ease-in-out forwards; }
     @keyframes blinkClick {
-      0%   { transform: scaleY(1); }
-      40%  { transform: scaleY(0.05); }
-      100% { transform: scaleY(1); }
+      0% { transform: scaleY(1); } 40% { transform: scaleY(0.05); } 100% { transform: scaleY(1); }
     }
 
     /* ---- 脸红 ---- */
-    .blush {
-      opacity: 0;
-      transition: opacity .35s;
-    }
-    .blush.show {
-      opacity: .55;
-      animation: blushIn .7s ease-out;
-    }
-    .blush.fade {
-      opacity: 0;
-      transition: opacity 1.2s ease-out;
-    }
+    .blush { opacity: 0; transition: opacity .35s; }
+    .blush.show { opacity: .55; animation: blushIn .7s ease-out; }
+    .blush.fade { opacity: 0; transition: opacity 1.2s ease-out; }
     @keyframes blushIn {
-      0%   { opacity: 0; r: 1; }
-      60%  { opacity: .65; r: 8; }
-      100% { opacity: .55; r: 6; }
-    }
-
-    /* ---- 表情文字 ---- */
-    .counter {
-      position: fixed;
-      top: 28px;
-      right: 28px;
-      color: rgba(255,255,255,.12);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      font-size: 13px;
-      letter-spacing: 2px;
-      pointer-events: none;
-    }
-
-    .hint {
-      position: fixed;
-      bottom: 36px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255,255,255,.22);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      font-size: 12px;
-      letter-spacing: 4px;
-      pointer-events: none;
-      animation: hintFade 2.2s ease-in-out infinite;
-    }
-    @keyframes hintFade {
-      0%, 100% { opacity: .2; }
-      50%      { opacity: .5; }
+      0% { opacity: 0; r: 1; } 60% { opacity: .65; r: 8; } 100% { opacity: .55; r: 6; }
     }
   </style>
 </head>
 <body>
 
+<div class="combo-hint" id="comboHint"></div>
+
 <div class="badge-wrap" id="badge">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 183 93">
-    <!-- 盾牌主体 -->
     <path class="shield-body" d="M49 9h84v28h14v14h-14v14h-7v14h-7v-14h-7v14h-7v-14h-28v14h-7v-14h-7v14h-7v-14h-7v-14h-14v-14h14V9Z"/>
 
-    <!-- 左眼 -->
-    <g class="eye-group eye-auto" id="leftEye" style="--origin: 66.5px 30px">
+    <g class="eye-group eye-auto" id="leftEye" style="--origin:66.5px 30px">
       <rect class="shield-inlay" x="63" y="23" width="7" height="14" rx="1.5"/>
     </g>
-
-    <!-- 右眼 -->
-    <g class="eye-group eye-auto" id="rightEye" style="--origin: 115.5px 30px">
+    <g class="eye-group eye-auto" id="rightEye" style="--origin:115.5px 30px">
       <rect class="shield-inlay" x="112" y="23" width="7" height="14" rx="1.5"/>
     </g>
 
-    <!-- 左脸红 -->
     <ellipse class="blush" id="blushL" cx="55" cy="34" rx="6" ry="4.5" fill="#FF8C94"/>
-
-    <!-- 右脸红 -->
     <ellipse class="blush" id="blushR" cx="128" cy="34" rx="6" ry="4.5" fill="#FF8C94"/>
   </svg>
 </div>
 
-<div class="counter" id="counter">0</div>
-<div class="hint">点击盾牌</div>
+<div class="total-bar">
+  <span class="total-label">tokens</span>
+  <span class="total-value" id="totalDisplay">0</span>
+</div>
 
 <script>
 const badge   = document.getElementById('badge');
 const svg     = badge.querySelector('svg');
 const leftEye  = document.getElementById('leftEye');
 const rightEye = document.getElementById('rightEye');
-const blushL  = document.getElementById('blushL');
-const blushR  = document.getElementById('blushR');
-const cntEl   = document.getElementById('counter');
-const hintEl  = document.querySelector('.hint');
+const blushL   = document.getElementById('blushL');
+const blushR   = document.getElementById('blushR');
+const totalEl  = document.getElementById('totalDisplay');
+const comboEl  = document.getElementById('comboHint');
 
-let clicks    = 0;
-let animId    = null;
-let blushTimer = null;
+let totalTokens  = 0;
+let totalClicks  = 0;
+let animId       = null;
+let blushTimer   = null;
 
-/* ====== 粒子 ====== */
-function spawnParticles(x, y, count = 14) {
-  const frag = document.createDocumentFragment();
-  for (let i = 0; i < count; i++) {
-    const p     = document.createElement('div');
-    p.className = 'particle';
-    const angle = (Math.PI * 2 * i) / count + (Math.random() - .5) * .35;
-    const dist  = 30 + Math.random() * 60;
-    p.style.cssText = `
-      left: ${x}px; top: ${y}px;
-      width: ${2 + Math.random() * 4}px;
-      height: ${2 + Math.random() * 4}px;
-      background: #FF8C94;
-      --dx: ${Math.cos(angle) * dist}px;
-      --dy: ${Math.sin(angle) * dist}px;
-    `;
-    frag.appendChild(p);
-  }
-  document.body.appendChild(frag);
-  setTimeout(() => document.querySelectorAll('.particle').forEach(el => el.remove()), 800);
+/* ====== 计分 (阶梯制) ====== */
+function getPoints(clicks) {
+  if (clicks < 10)  return 1;
+  if (clicks < 20)  return 100;
+  if (clicks < 30)  return 1000;
+  if (clicks < 200) return 10000;
+  // 200~399:10万, 400~999:100万, 1000~1999:1000万, 2000+:以此类推
+  const tier = Math.floor(clicks / 200);
+  return Math.pow(10, 5 + tier);
 }
 
-/* ====== 波纹 ====== */
-function spawnRipple(x, y) {
-  const r = document.createElement('div');
-  r.className = 'ripple';
-  r.style.left = x + 'px';
-  r.style.top  = y + 'px';
-  document.body.appendChild(r);
-  setTimeout(() => r.remove(), 800);
+/* ====== 暴击 (高于基础分 6~99 倍) ====== */
+function maybeCrit(clicks) {
+  let chance = 0.08;
+  if (clicks % 10 === 9) chance = 0.25;
+  if (Math.random() < chance) {
+    const base = getPoints(clicks);
+    const nices = [6.66, 7.77, 8.88, 9.99, 16.66, 18.88, 66.6, 77.7, 88.8, 99.9];
+    const mult  = nices[Math.floor(Math.random() * nices.length)];
+    return Math.round(base * mult);
+  }
+  return 0;
+}
+function fmt(n) { return n.toLocaleString('en-US'); }
+
+/* ====== 音效 ====== */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playCoin(points) {
+  ensureAudio(); const ctx = audioCtx; const t = ctx.currentTime;
+  let notes;
+  if (points >= 1e6)      notes = [988,1319,1760,2637];
+  else if (points >= 1e5) notes = [988,1319,1760];
+  else if (points >= 1e4) notes = [784,988,1319];
+  else if (points >= 1e3) notes = [659,988];
+  else if (points >= 100) notes = [784,1319];
+  else                    notes = [988,1319];
+  notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = i === notes.length-1 ? 'triangle' : 'square';
+    osc.frequency.value = freq;
+    const s = t + i*0.06;
+    gain.gain.setValueAtTime(0.15, s);
+    gain.gain.exponentialRampToValueAtTime(0.01, s+0.18);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(s); osc.stop(s+0.2);
+  });
+}
+
+function playPop() {
+  ensureAudio(); const ctx = audioCtx; const t = ctx.currentTime;
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.exponentialRampToValueAtTime(80, t+0.08);
+  gain.gain.setValueAtTime(0.08, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t+0.08);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(t); osc.stop(t+0.1);
+}
+
+/* ====== 浮动数字 ====== */
+function spawnFloat(x, y, points) {
+  const el = document.createElement('div'); el.className = 'float-num';
+  el.textContent = '+' + fmt(points);
+  let size, color;
+  if (points >= 1e6)      { size=42; color='#FF4500'; }
+  else if (points >= 1e5) { size=36; color='#FF6347'; }
+  else if (points >= 1e4) { size=30; color='#FF8C00'; }
+  else if (points >= 1e3) { size=26; color='#FFA500'; }
+  else if (points >= 100) { size=22; color='#FFD700'; }
+  else                    { size=18; color='#FFD700'; }
+  el.style.cssText = `left:${x}px;top:${y}px;font-size:${size}px;color:${color};text-shadow:0 0 ${size/4}px ${color},0 2px 4px rgba(0,0,0,.5);`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+/* ====== 暴击浮动 —— 更大更炫 ====== */
+function spawnFloatCrit(x, y, points) {
+  const el = document.createElement('div'); el.className = 'float-num';
+  el.textContent = '💥 +' + fmt(points);
+  let size;
+  if (points >= 1e7)       size = 48;
+  else if (points >= 1e6)  size = 40;
+  else if (points >= 1e5)  size = 34;
+  else if (points >= 1e4)  size = 28;
+  else                     size = 22;
+  el.style.cssText = `
+    left:${x}px;top:${y}px;font-size:${size}px;color:#FF4500;font-weight:900;
+    text-shadow:0 0 ${size/2}px rgba(255,69,0,.8),0 0 ${size}px rgba(255,165,0,.5),0 3px 6px rgba(0,0,0,.6);
+  `;
+  el.style.animation = 'floatUpCrit .95s cubic-bezier(.15,.6,.35,1) forwards';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+/* ====== Token跳动 ====== */
+function pulseTotal() {
+  totalEl.classList.add('pulse');
+  setTimeout(() => totalEl.classList.remove('pulse'), 150);
 }
 
 /* ====== 眨眼 ====== */
 function triggerBlink() {
-  // 暂停自动眨眼
   leftEye.classList.remove('eye-auto');
   rightEye.classList.remove('eye-auto');
-
-  // 触发一次点击眨眼
   leftEye.classList.add('eye-click');
   rightEye.classList.add('eye-click');
-
-  // 动画结束后恢复自动眨眼
   setTimeout(() => {
     leftEye.classList.remove('eye-click');
     rightEye.classList.remove('eye-click');
@@ -242,123 +264,85 @@ function triggerBlink() {
 /* ====== 脸红 ====== */
 function showBlush() {
   clearTimeout(blushTimer);
-
-  blushL.classList.remove('fade');
-  blushR.classList.remove('fade');
-  blushL.classList.remove('show');
-  blushR.classList.remove('show');
-
-  // reflow trick 让 animation 重新触发
+  blushL.classList.remove('fade','show');
+  blushR.classList.remove('fade','show');
   void blushL.offsetWidth;
-
-  blushL.classList.add('show');
-  blushR.classList.add('show');
-
-  // 2 秒后渐隐
+  blushL.classList.add('show'); blushR.classList.add('show');
   blushTimer = setTimeout(() => {
-    blushL.classList.add('fade');
-    blushR.classList.add('fade');
-    blushL.classList.remove('show');
-    blushR.classList.remove('show');
+    blushL.classList.add('fade'); blushR.classList.add('fade');
+    blushL.classList.remove('show'); blushR.classList.remove('show');
   }, 2200);
 }
 
 /* ====== Squash & Stretch ====== */
 function animateBounce() {
   if (animId) cancelAnimationFrame(animId);
-
   const start = performance.now();
-  const duration = 900;
-
+  const duration = 600;
   const keyframes = [
-    [0,     1.000,  1.000],
-    [33,    0.885,  1.104],
-    [66,    0.905,  1.080],
-    [100,   0.960,  1.000],
-    [133,   1.015,  0.975],
-    [166,   1.050,  0.955],
-    [200,   1.085,  0.932],
-    [233,   1.070,  0.945],
-    [266,   1.010,  0.985],
-    [300,   0.955,  1.030],
-    [333,   0.940,  1.045],
-    [366,   1.020,  0.975],
-    [400,   1.080,  0.940],
-    [433,   1.110,  0.920],
-    [466,   1.130,  0.893],
-    [500,   1.085,  0.932],
-    [533,   1.025,  0.970],
-    [566,   0.975,  1.020],
-    [600,   0.958,  1.035],
-    [633,   1.008,  0.990],
-    [666,   1.040,  0.962],
-    [700,   1.035,  0.970],
-    [733,   1.010,  0.990],
-    [766,   0.995,  1.005],
-    [800,   1.002,  0.998],
-    [833,   1.001,  0.999],
-    [900,   1.000,  1.000],
+    [0,1,1],[20,.89,1.1],[50,.94,1.05],[80,.98,1.01],
+    [120,1.07,.94],[160,1.09,.92],[200,1.05,.95],
+    [250,.96,1.025],[300,1.03,.975],[350,1.01,.99],
+    [400,.995,1.003],[500,1.001,.999],[600,1,1],
   ];
-
   function frame(now) {
-    const elapsed = now - start;
-    if (elapsed >= duration) {
-      svg.style.transform = 'scale(1, 1) translateY(0)';
-      animId = null;
-      return;
+    const e = now - start;
+    if (e >= duration) { svg.style.transform = 'scale(1,1) translateY(0)'; animId=null; return; }
+    let sy=1,sx=1;
+    for (let i=0;i<keyframes.length-1;i++) {
+      const [t0,y0,x0]=keyframes[i],[t1,y1,x1]=keyframes[i+1];
+      if (e>=t0&&e<=t1){ const p=(e-t0)/(t1-t0); sy=y0+(y1-y0)*p; sx=x0+(x1-x0)*p; break; }
     }
-    let sy = 1, sx = 1;
-    for (let i = 0; i < keyframes.length - 1; i++) {
-      const [t0, y0, x0] = keyframes[i];
-      const [t1, y1, x1] = keyframes[i + 1];
-      if (elapsed >= t0 && elapsed <= t1) {
-        const p = (elapsed - t0) / (t1 - t0);
-        sy = y0 + (y1 - y0) * p;
-        sx = x0 + (x1 - x0) * p;
-        break;
-      }
-    }
-    const ty = (1 - sy) * 45;
-    svg.style.transform = `scale(${sx}, ${sy}) translateY(${ty}px)`;
+    svg.style.transform = `scale(${sx},${sy}) translateY(${(1-sy)*35}px)`;
     animId = requestAnimationFrame(frame);
   }
-
   animId = requestAnimationFrame(frame);
 }
 
 /* ====== 点击 ====== */
 badge.addEventListener('click', e => {
-  clicks++;
-  cntEl.textContent = clicks;
-  if (clicks === 1) hintEl.style.display = 'none';
+  totalClicks++;
+  const points = getPoints(totalClicks);
+  const crit   = maybeCrit(totalClicks);
+  const earned = crit > 0 ? crit : points;
+  totalTokens += earned;
+
+  totalEl.textContent = fmt(totalTokens);
+  pulseTotal();
+
+  // 浮动数字
+  if (crit > 0) {
+    spawnFloatCrit(e.clientX, e.clientY-10, crit);
+  } else {
+    spawnFloat(e.clientX, e.clientY-10, points);
+  }
+
+  // 顶部提示
+  comboEl.textContent = totalClicks + ' 下  ·  每击 +' + fmt(points);
+  comboEl.style.color = 'rgba(255,255,255,.18)';
+  comboEl.style.fontSize = '11px';
+
+  if (crit > 0) {
+    comboEl.textContent = '💥 暴击! +' + fmt(crit);
+    comboEl.style.color = 'rgba(255,100,0,.9)';
+    comboEl.style.fontSize = '18px';
+    comboEl.style.textShadow = '0 0 10px rgba(255,100,0,.5)';
+  } else if (totalClicks % 10 === 0) {
+    comboEl.textContent = totalClicks + ' 连击!  +' + fmt(points);
+    comboEl.style.color = 'rgba(255,215,0,.7)';
+    comboEl.style.fontSize = '14px';
+  }
 
   triggerBlink();
   showBlush();
-  spawnParticles(e.clientX, e.clientY, 12);
-  spawnRipple(e.clientX, e.clientY);
   animateBounce();
-  navigator.vibrate?.(12);
+  playCoin(earned);
+  playPop();
 });
 
-/* ====== 长按 ====== */
-let holdTimer;
-badge.addEventListener('pointerdown', e => {
-  holdTimer = setTimeout(() => {
-    showBlush();
-    spawnParticles(e.clientX, e.clientY, 30);
-    spawnRipple(e.clientX, e.clientY);
-    triggerBlink();
-    svg.style.transition = 'transform .15s cubic-bezier(.34,1.56,.64,1)';
-    svg.style.transform = 'scale(0.85, 0.85)';
-    setTimeout(() => {
-      svg.style.transition = 'transform .5s cubic-bezier(.34,1.56,.64,1)';
-      svg.style.transform = 'scale(1, 1) translateY(0)';
-    }, 150);
-    navigator.vibrate?.(20);
-  }, 350);
-});
-badge.addEventListener('pointerup',    () => clearTimeout(holdTimer));
-badge.addEventListener('pointerleave', () => clearTimeout(holdTimer));
+comboEl.textContent = '每击 +1';
+comboEl.style.color = 'rgba(255,255,255,.18)';
+comboEl.style.fontSize = '11px';
 </script>
 
 <script>
