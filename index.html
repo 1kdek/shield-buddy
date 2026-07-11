@@ -70,7 +70,17 @@
     /* ---- 顶部信息 ---- */
     .combo-hint {
       position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
-      color: rgba(255,255,255,.18); font-size: 11px; letter-spacing: 3px; pointer-events: none;
+      color: rgba(255,255,255,.18); font-size: 11px; letter-spacing: 3px;
+      pointer-events: none; text-align: center; white-space: nowrap;
+    }
+    @keyframes critShake {
+      0%,100% { transform: translateX(-50%) translateY(0); }
+      15%     { transform: translateX(calc(-50% + 6px)) translateY(-3px); }
+      30%     { transform: translateX(calc(-50% - 5px)) translateY(2px); }
+      45%     { transform: translateX(calc(-50% + 4px)) translateY(-1px); }
+      60%     { transform: translateX(calc(-50% - 3px)) translateY(1px); }
+      75%     { transform: translateX(calc(-50% + 2px)) translateY(0); }
+      90%     { transform: translateX(calc(-50% - 1px)) translateY(0); }
     }
 
     .badge-wrap svg {
@@ -124,7 +134,7 @@
 </div>
 
 <div class="total-bar">
-  <span class="total-label">tokens</span>
+  <span class="total-label">Tokens</span>
   <span class="total-value" id="totalDisplay">0</span>
 </div>
 
@@ -140,6 +150,7 @@ const comboEl  = document.getElementById('comboHint');
 
 let totalTokens  = 0;
 let totalClicks  = 0;
+let critsThisSession = 0;
 let animId       = null;
 let blushTimer   = null;
 
@@ -228,7 +239,9 @@ function spawnFloat(x, y, points) {
 /* ====== 暴击浮动 —— 更大更炫 ====== */
 function spawnFloatCrit(x, y, points) {
   const el = document.createElement('div'); el.className = 'float-num';
-  el.textContent = '💥 +' + fmt(points);
+  const emojis = ['💥','🔥','⚡','🌟','💎','🎯','🦄','👑','🚀','💣'];
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+  el.textContent = emoji + ' +' + fmt(points);
   let size;
   if (points >= 1e7)       size = 48;
   else if (points >= 1e6)  size = 40;
@@ -315,25 +328,55 @@ badge.addEventListener('click', e => {
 
   // 浮动数字
   if (crit > 0) {
+    critsThisSession++;
     spawnFloatCrit(e.clientX, e.clientY-10, crit);
   } else {
     spawnFloat(e.clientX, e.clientY-10, points);
   }
 
   // 顶部提示
-  comboEl.textContent = totalClicks + ' 下  ·  每击 +' + fmt(points);
-  comboEl.style.color = 'rgba(255,255,255,.18)';
-  comboEl.style.fontSize = '11px';
-
   if (crit > 0) {
-    comboEl.textContent = '💥 暴击! +' + fmt(crit);
-    comboEl.style.color = 'rgba(255,100,0,.9)';
-    comboEl.style.fontSize = '18px';
-    comboEl.style.textShadow = '0 0 10px rgba(255,100,0,.5)';
+    const critPhrases = [
+      '💥 卧槽 暴击!!',
+      '🔥 超级暴击!!!',
+      '⚡ 天选暴击!!!',
+      '🌟 欧皇暴击!!',
+      '💎 完美暴击!!',
+      '🎯 一击必暴!!!',
+      '🦄 离谱暴击!!',
+      '👑 帝王暴击!!',
+      '🚀 起飞暴击!!',
+      '💣 炸裂暴击!!',
+    ];
+    const idx = Math.floor(Math.random() * critPhrases.length);
+    comboEl.textContent = critPhrases[idx] + ' +' + fmt(crit);
+    comboEl.style.color = '#FF4500';
+    comboEl.style.fontSize = '17px';
+    comboEl.style.textShadow = '0 0 14px rgba(255,69,0,.7), 0 0 28px rgba(255,140,0,.4)';
+    comboEl.style.fontWeight = '900';
+    comboEl.style.animation = 'none';
+    void comboEl.offsetWidth;
+    comboEl.style.animation = 'critShake .35s ease-out';
   } else if (totalClicks % 10 === 0) {
-    comboEl.textContent = totalClicks + ' 连击!  +' + fmt(points);
-    comboEl.style.color = 'rgba(255,215,0,.7)';
+    const comboPhrases = [
+      totalClicks + ' 连击! 🎵',
+      totalClicks + ' 连击! 🎶',
+      totalClicks + ' 连击~ 继续!' ,
+      totalClicks + ' 啪啪啪! 💪',
+      '连击 ×10! 🔥',
+      '手感火热! 🔥',
+    ];
+    comboEl.textContent = comboPhrases[(totalClicks/10) % comboPhrases.length];
+    comboEl.style.color = 'rgba(255,215,0,.75)';
     comboEl.style.fontSize = '14px';
+    comboEl.style.textShadow = '0 0 8px rgba(255,215,0,.3)';
+    comboEl.style.fontWeight = 'normal';
+  } else {
+    comboEl.textContent = '第' + totalClicks + '下 · 每击+' + fmt(points);
+    comboEl.style.color = 'rgba(255,255,255,.2)';
+    comboEl.style.fontSize = '11px';
+    comboEl.style.textShadow = 'none';
+    comboEl.style.fontWeight = 'normal';
   }
 
   triggerBlink();
@@ -343,9 +386,9 @@ badge.addEventListener('click', e => {
   playPop();
 });
 
-comboEl.textContent = '每击 +1';
-comboEl.style.color = 'rgba(255,255,255,.18)';
-comboEl.style.fontSize = '11px';
+comboEl.textContent = '👆 点我点我！';
+comboEl.style.color = 'rgba(255,255,255,.25)';
+comboEl.style.fontSize = '12px';
 </script>
 
 <script>
