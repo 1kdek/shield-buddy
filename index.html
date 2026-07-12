@@ -19,21 +19,14 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      background: #0a0a0f;
-      overflow: hidden;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
+      min-height: 100vh; min-height: 100dvh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 24px;
+      background: #0a0a0f; overflow: hidden;
+      user-select: none; -webkit-tap-highlight-color: transparent;
       font-family: 'Segoe UI', system-ui, sans-serif;
     }
 
-    /* ---- 浮动数字 ---- */
     .float-num {
       position: fixed; pointer-events: none; font-weight: 900;
       animation: floatUp .9s cubic-bezier(.15,.6,.35,1) forwards; z-index: 99;
@@ -51,7 +44,6 @@
       100% { transform: translateY(-110px) scale(.9); opacity: 0; }
     }
 
-    /* ---- Token 总量 ---- */
     .total-bar {
       position: fixed; bottom: 0; left: 0; right: 0;
       padding: 20px 24px; padding-bottom: max(20px, env(safe-area-inset-bottom));
@@ -67,10 +59,8 @@
     }
     .total-value.pulse { transform: scale(1.15); }
 
-    /* ---- 顶部信息 ---- */
     .combo-hint {
       position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
-      color: rgba(255,255,255,.18); font-size: 11px; letter-spacing: 3px;
       pointer-events: none; text-align: center; white-space: nowrap;
     }
     @keyframes critShake {
@@ -83,15 +73,15 @@
       90%     { transform: translateX(calc(-50% - 1px)) translateY(0); }
     }
 
+    .badge-wrap { padding: 80px 60px; cursor: pointer; }
     .badge-wrap svg {
       width: min(65vw, 360px); height: auto; display: block;
-      transform-origin: center center; cursor: pointer;
+      transform-origin: center center;
     }
 
     .shield-body  { fill: #D77757; }
     .shield-inlay { fill: #000000; }
 
-    /* ---- 眨眼 ---- */
     .eye-group { transform-origin: var(--origin); }
     .eye-auto  { animation: blinkAuto 4s ease-in-out infinite; }
     @keyframes blinkAuto {
@@ -104,7 +94,6 @@
       0% { transform: scaleY(1); } 40% { transform: scaleY(0.05); } 100% { transform: scaleY(1); }
     }
 
-    /* ---- 脸红 ---- */
     .blush { opacity: 0; transition: opacity .35s; }
     .blush.show { opacity: .55; animation: blushIn .7s ease-out; }
     .blush.fade { opacity: 0; transition: opacity 1.2s ease-out; }
@@ -120,14 +109,8 @@
 <div class="badge-wrap" id="badge">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 183 93">
     <path class="shield-body" d="M49 9h84v28h14v14h-14v14h-7v14h-7v-14h-7v14h-7v-14h-28v14h-7v-14h-7v14h-7v-14h-7v-14h-14v-14h14V9Z"/>
-
-    <g class="eye-group eye-auto" id="leftEye" style="--origin:66.5px 30px">
-      <rect class="shield-inlay" x="63" y="23" width="7" height="14" rx="1.5"/>
-    </g>
-    <g class="eye-group eye-auto" id="rightEye" style="--origin:115.5px 30px">
-      <rect class="shield-inlay" x="112" y="23" width="7" height="14" rx="1.5"/>
-    </g>
-
+    <g class="eye-group eye-auto" id="leftEye" style="--origin:66.5px 30px"><rect class="shield-inlay" x="63" y="23" width="7" height="14" rx="1.5"/></g>
+    <g class="eye-group eye-auto" id="rightEye" style="--origin:115.5px 30px"><rect class="shield-inlay" x="112" y="23" width="7" height="14" rx="1.5"/></g>
     <ellipse class="blush" id="blushL" cx="55" cy="34" rx="6" ry="4.5" fill="#FF8C94"/>
     <ellipse class="blush" id="blushR" cx="128" cy="34" rx="6" ry="4.5" fill="#FF8C94"/>
   </svg>
@@ -139,217 +122,307 @@
 </div>
 
 <script>
-const badge   = document.getElementById('badge');
-const svg     = badge.querySelector('svg');
-const leftEye  = document.getElementById('leftEye');
-const rightEye = document.getElementById('rightEye');
-const blushL   = document.getElementById('blushL');
-const blushR   = document.getElementById('blushR');
-const totalEl  = document.getElementById('totalDisplay');
-const comboEl  = document.getElementById('comboHint');
+var badge   = document.getElementById('badge');
+var svg     = badge.querySelector('svg');
+var leftEye  = document.getElementById('leftEye');
+var rightEye = document.getElementById('rightEye');
+var blushL   = document.getElementById('blushL');
+var blushR   = document.getElementById('blushR');
+var totalEl  = document.getElementById('totalDisplay');
+var comboEl  = document.getElementById('comboHint');
 
-let totalTokens  = 0;
-let totalClicks  = 0;
-let critsThisSession = 0;
-let animId       = null;
-let blushTimer   = null;
+var totalTokens  = 0;
+var totalClicks  = 0;
+var critsThisSession = 0;
+var animId       = null;
+var blushTimer   = null;
+var lastClickTime = 0;
+var speedLevel   = 0;
+var decayTimer   = null;
 
-/* ====== 计分 (阶梯制) ====== */
 function getPoints(clicks) {
   if (clicks < 10)  return 1;
   if (clicks < 20)  return 100;
   if (clicks < 30)  return 1000;
   if (clicks < 200) return 10000;
-  // 200~399:10万, 400~999:100万, 1000~1999:1000万, 2000+:以此类推
-  const tier = Math.floor(clicks / 200);
+  var tier = Math.floor(clicks / 200);
   return Math.pow(10, 5 + tier);
 }
 
-/* ====== 暴击 (高于基础分 6~99 倍) ====== */
 function maybeCrit(clicks) {
-  let chance = 0.08;
+  var chance = 0.08;
   if (clicks % 10 === 9) chance = 0.25;
   if (Math.random() < chance) {
-    const base = getPoints(clicks);
-    const nices = [6.66, 7.77, 8.88, 9.99, 16.66, 18.88, 66.6, 77.7, 88.8, 99.9];
-    const mult  = nices[Math.floor(Math.random() * nices.length)];
+    var base = getPoints(clicks);
+    var nices = [6.66, 7.77, 8.88, 9.99, 16.66, 18.88, 66.6, 77.7, 88.8, 99.9];
+    var mult  = nices[Math.floor(Math.random() * nices.length)];
     return Math.round(base * mult);
   }
   return 0;
 }
 function fmt(n) { return n.toLocaleString('en-US'); }
 
-/* ====== 音效 ====== */
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null;
-function ensureAudio() {
+/* ====== 音效引擎 ====== */
+var AudioCtx = window.AudioContext || window.webkitAudioContext;
+var audioCtx = null;
+function a() {
   if (!audioCtx) audioCtx = new AudioCtx();
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-function playCoin(points) {
-  ensureAudio(); const ctx = audioCtx; const t = ctx.currentTime;
-  let notes;
-  if (points >= 1e6)      notes = [988,1319,1760,2637];
-  else if (points >= 1e5) notes = [988,1319,1760];
-  else if (points >= 1e4) notes = [784,988,1319];
-  else if (points >= 1e3) notes = [659,988];
-  else if (points >= 100) notes = [784,1319];
-  else                    notes = [988,1319];
-  notes.forEach((freq, i) => {
-    const osc = ctx.createOscillator(), gain = ctx.createGain();
-    osc.type = i === notes.length-1 ? 'triangle' : 'square';
-    osc.frequency.value = freq;
-    const s = t + i*0.06;
-    gain.gain.setValueAtTime(0.15, s);
-    gain.gain.exponentialRampToValueAtTime(0.01, s+0.18);
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.start(s); osc.stop(s+0.2);
+function playCoin(points, spd) {
+  a(); var ctx = audioCtx; var t = ctx.currentTime;
+  var s = spd || 0;
+  var shift = 1 + s * 0.5;
+  var base;
+  if (points >= 1e7)      base = [988,1319,1760,2637,3520];
+  else if (points >= 1e6) base = [784,988,1319,1760];
+  else if (points >= 1e5) base = [659,988,1319];
+  else if (points >= 1e4) base = [587,784,988];
+  else if (points >= 1e3) base = [523,784];
+  else if (points >= 100) base = [659,988];
+  else                    base = [988,1319];
+  var notes = base.map(function(f){ return f*shift; });
+  var gap = Math.max(0.02, 0.07 - s*0.013);
+  var waves = ['square','triangle','sawtooth','sine'];
+  notes.forEach(function(freq, i) {
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = i===notes.length-1 ? 'triangle' : waves[Math.floor(Math.random()*waves.length)];
+    o.frequency.value = freq;
+    var st = t + i*gap;
+    var d = Math.max(0.08, 0.22 - s*0.035);
+    g.gain.setValueAtTime(0.14, st);
+    g.gain.exponentialRampToValueAtTime(0.01, st+d);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(st); o.stop(st+d+0.02);
+  });
+  if (s >= 2) {
+    var o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'sine'; o2.frequency.value = notes[notes.length-1]*1.5;
+    g2.gain.setValueAtTime(0.04, t+gap*(notes.length-1));
+    g2.gain.exponentialRampToValueAtTime(0.001, t+gap*notes.length+0.15);
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.start(t+gap*(notes.length-1)); o2.stop(t+gap*notes.length+0.2);
+  }
+}
+
+function playPop(spd) {
+  a(); var ctx = audioCtx; var t = ctx.currentTime;
+  var s = spd || 0;
+  var bf = 200 + s*180;
+  var dur = Math.max(0.04, 0.1 - s*0.015);
+  var vol = 0.06 + s*0.025;
+  var o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = ['sine','triangle','square'][Math.min(s,2)];
+  o.frequency.setValueAtTime(bf+120, t);
+  o.frequency.exponentialRampToValueAtTime(bf*0.3, t+dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(t); o.stop(t+dur+0.02);
+  if (s >= 3) {
+    var o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'triangle'; o2.frequency.value = 1200;
+    g2.gain.setValueAtTime(0.05, t);
+    g2.gain.exponentialRampToValueAtTime(0.001, t+0.03);
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.start(t); o2.stop(t+0.04);
+  }
+}
+
+function playCritSound(points, spd) {
+  a(); var ctx = audioCtx; var t = ctx.currentTime;
+  var s = spd || 0;
+  var sf = 1 + s*0.6;
+  var o1 = ctx.createOscillator(), g1 = ctx.createGain();
+  o1.type = 'sawtooth';
+  o1.frequency.setValueAtTime(200*sf, t);
+  o1.frequency.exponentialRampToValueAtTime(1400*sf, t+0.25);
+  g1.gain.setValueAtTime(0.06+s*0.02, t);
+  g1.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+  o1.connect(g1); g1.connect(ctx.destination);
+  o1.start(t); o1.stop(t+0.35);
+  var o2 = ctx.createOscillator(), g2 = ctx.createGain();
+  o2.type = 'sine';
+  o2.frequency.setValueAtTime(80+s*30, t);
+  o2.frequency.exponentialRampToValueAtTime(30, t+0.15);
+  g2.gain.setValueAtTime(0.15, t);
+  g2.gain.exponentialRampToValueAtTime(0.001, t+0.18);
+  o2.connect(g2); g2.connect(ctx.destination);
+  o2.start(t); o2.stop(t+0.2);
+}
+
+function playComboSound() {
+  a(); var ctx = audioCtx; var t = ctx.currentTime;
+  [523,659,784].forEach(function(freq,i){
+    var o=ctx.createOscillator(),g=ctx.createGain();
+    o.type=i===2?'triangle':'square'; o.frequency.value=freq;
+    var s=t+i*0.1; g.gain.setValueAtTime(0.08,s);
+    g.gain.exponentialRampToValueAtTime(0.01,s+0.12);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(s); o.stop(s+0.15);
   });
 }
 
-function playPop() {
-  ensureAudio(); const ctx = audioCtx; const t = ctx.currentTime;
-  const osc = ctx.createOscillator(), gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(300, t);
-  osc.frequency.exponentialRampToValueAtTime(80, t+0.08);
-  gain.gain.setValueAtTime(0.08, t);
-  gain.gain.exponentialRampToValueAtTime(0.001, t+0.08);
-  osc.connect(gain); gain.connect(ctx.destination);
-  osc.start(t); osc.stop(t+0.1);
+function playSpeedUpSound(newSpd) {
+  if (newSpd <= (playSpeedUpSound.prev||0)) { playSpeedUpSound.prev=newSpd; return; }
+  playSpeedUpSound.prev = newSpd;
+  if (newSpd < 2) return;
+  a(); var ctx = audioCtx; var t = ctx.currentTime;
+  var base = 500 + newSpd*200;
+  [base,base*1.25,base*1.5].forEach(function(f,i){
+    var o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='triangle'; o.frequency.value=f;
+    var s=t+i*0.07; g.gain.setValueAtTime(0.08,s);
+    g.gain.exponentialRampToValueAtTime(0.001,s+0.12);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(s); o.stop(s+0.15);
+  });
+}
+
+function playFlourish(spd) {
+  if (Math.random() > 0.1 || spd < 1) return;
+  a(); var ctx = audioCtx; var t = ctx.currentTime;
+  var picks = [
+    function(){ [523,659,784,1047].forEach(function(f,i){
+      var o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='triangle'; o.frequency.value=f*(1+spd*0.3);
+      var s=t+i*0.04; g.gain.setValueAtTime(0.04,s);
+      g.gain.exponentialRampToValueAtTime(0.001,s+0.1);
+      o.connect(g); g.connect(ctx.destination); o.start(s); o.stop(s+0.12);
+    });},
+    function(){ var o=ctx.createOscillator(),g=ctx.createGain(); o.type='sine';
+      o.frequency.setValueAtTime(880,t); o.frequency.setValueAtTime(920,t+0.04);
+      o.frequency.setValueAtTime(840,t+0.08); o.frequency.setValueAtTime(900,t+0.12);
+      g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+0.2);
+    },
+    function(){ var o=ctx.createOscillator(),g=ctx.createGain(); o.type='sine';
+      o.frequency.setValueAtTime(200,t); o.frequency.exponentialRampToValueAtTime(40,t+0.2);
+      g.gain.setValueAtTime(0.08,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+0.28);
+    },
+    function(){ [660,880,1100,1320].forEach(function(f,i){
+      var o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='triangle'; o.frequency.value=f;
+      var s=t+i*0.03; g.gain.setValueAtTime(0.06,s);
+      g.gain.exponentialRampToValueAtTime(0.001,s+0.06);
+      o.connect(g); g.connect(ctx.destination); o.start(s); o.stop(s+0.08);
+    });},
+  ];
+  picks[Math.floor(Math.random()*picks.length)]();
 }
 
 /* ====== 浮动数字 ====== */
-function spawnFloat(x, y, points) {
-  const el = document.createElement('div'); el.className = 'float-num';
-  el.textContent = '+' + fmt(points);
-  let size, color;
-  if (points >= 1e6)      { size=42; color='#FF4500'; }
-  else if (points >= 1e5) { size=36; color='#FF6347'; }
-  else if (points >= 1e4) { size=30; color='#FF8C00'; }
-  else if (points >= 1e3) { size=26; color='#FFA500'; }
-  else if (points >= 100) { size=22; color='#FFD700'; }
-  else                    { size=18; color='#FFD700'; }
-  el.style.cssText = `left:${x}px;top:${y}px;font-size:${size}px;color:${color};text-shadow:0 0 ${size/4}px ${color},0 2px 4px rgba(0,0,0,.5);`;
+function spawnFloat(x,y,points){
+  var el=document.createElement('div'); el.className='float-num';
+  el.textContent='+'+fmt(points);
+  var size,color;
+  if(points>=1e6){size=42;color='#FF4500';}
+  else if(points>=1e5){size=36;color='#FF6347';}
+  else if(points>=1e4){size=30;color='#FF8C00';}
+  else if(points>=1e3){size=26;color='#FFA500';}
+  else if(points>=100){size=22;color='#FFD700';}
+  else{size=18;color='#FFD700';}
+  el.style.cssText='left:'+x+'px;top:'+y+'px;font-size:'+size+'px;color:'+color+';text-shadow:0 0 '+size/4+'px '+color+',0 2px 4px rgba(0,0,0,.5);';
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 950);
+  setTimeout(function(){el.remove();},950);
 }
-
-/* ====== 暴击浮动 —— 更大更炫 ====== */
-function spawnFloatCrit(x, y, points) {
-  const el = document.createElement('div'); el.className = 'float-num';
-  const emojis = ['💥','🔥','⚡','🌟','💎','🎯','🦄','👑','🚀','💣'];
-  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
-  el.textContent = emoji + ' +' + fmt(points);
-  let size;
-  if (points >= 1e7)       size = 48;
-  else if (points >= 1e6)  size = 40;
-  else if (points >= 1e5)  size = 34;
-  else if (points >= 1e4)  size = 28;
-  else                     size = 22;
-  el.style.cssText = `
-    left:${x}px;top:${y}px;font-size:${size}px;color:#FF4500;font-weight:900;
-    text-shadow:0 0 ${size/2}px rgba(255,69,0,.8),0 0 ${size}px rgba(255,165,0,.5),0 3px 6px rgba(0,0,0,.6);
-  `;
-  el.style.animation = 'floatUpCrit .95s cubic-bezier(.15,.6,.35,1) forwards';
+function spawnFloatCrit(x,y,points){
+  var el=document.createElement('div'); el.className='float-num';
+  var emojis=['💥','🔥','⚡','🌟','💎','🎯','🦄','👑','🚀','💣'];
+  el.textContent=emojis[Math.floor(Math.random()*emojis.length)]+' +'+fmt(points);
+  var sz;
+  if(points>=1e7)sz=48;else if(points>=1e6)sz=40;else if(points>=1e5)sz=34;else if(points>=1e4)sz=28;else sz=22;
+  el.style.cssText='left:'+x+'px;top:'+y+'px;font-size:'+sz+'px;color:#FF4500;font-weight:900;text-shadow:0 0 '+sz/2+'px rgba(255,69,0,.8),0 0 '+sz+'px rgba(255,165,0,.5),0 3px 6px rgba(0,0,0,.6);';
+  el.style.animation='floatUpCrit .95s cubic-bezier(.15,.6,.35,1) forwards';
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1000);
+  setTimeout(function(){el.remove();},1000);
 }
-
-/* ====== Token跳动 ====== */
-function pulseTotal() {
+function pulseTotal(){
   totalEl.classList.add('pulse');
-  setTimeout(() => totalEl.classList.remove('pulse'), 150);
+  setTimeout(function(){totalEl.classList.remove('pulse');},150);
 }
-
-/* ====== 眨眼 ====== */
-function triggerBlink() {
-  leftEye.classList.remove('eye-auto');
-  rightEye.classList.remove('eye-auto');
-  leftEye.classList.add('eye-click');
-  rightEye.classList.add('eye-click');
-  setTimeout(() => {
-    leftEye.classList.remove('eye-click');
-    rightEye.classList.remove('eye-click');
-    leftEye.classList.add('eye-auto');
-    rightEye.classList.add('eye-auto');
-  }, 260);
+function triggerBlink(){
+  leftEye.classList.remove('eye-auto'); rightEye.classList.remove('eye-auto');
+  leftEye.classList.add('eye-click'); rightEye.classList.add('eye-click');
+  setTimeout(function(){
+    leftEye.classList.remove('eye-click'); rightEye.classList.remove('eye-click');
+    leftEye.classList.add('eye-auto'); rightEye.classList.add('eye-auto');
+  },260);
 }
-
-/* ====== 脸红 ====== */
-function showBlush() {
+function showBlush(){
   clearTimeout(blushTimer);
-  blushL.classList.remove('fade','show');
-  blushR.classList.remove('fade','show');
+  blushL.classList.remove('fade','show'); blushR.classList.remove('fade','show');
   void blushL.offsetWidth;
   blushL.classList.add('show'); blushR.classList.add('show');
-  blushTimer = setTimeout(() => {
+  blushTimer=setTimeout(function(){
     blushL.classList.add('fade'); blushR.classList.add('fade');
     blushL.classList.remove('show'); blushR.classList.remove('show');
-  }, 2200);
+  },2200);
 }
-
-/* ====== Squash & Stretch ====== */
-function animateBounce() {
-  if (animId) cancelAnimationFrame(animId);
-  const start = performance.now();
-  const duration = 600;
-  const keyframes = [
-    [0,1,1],[20,.89,1.1],[50,.94,1.05],[80,.98,1.01],
-    [120,1.07,.94],[160,1.09,.92],[200,1.05,.95],
-    [250,.96,1.025],[300,1.03,.975],[350,1.01,.99],
-    [400,.995,1.003],[500,1.001,.999],[600,1,1],
-  ];
-  function frame(now) {
-    const e = now - start;
-    if (e >= duration) { svg.style.transform = 'scale(1,1) translateY(0)'; animId=null; return; }
-    let sy=1,sx=1;
-    for (let i=0;i<keyframes.length-1;i++) {
-      const [t0,y0,x0]=keyframes[i],[t1,y1,x1]=keyframes[i+1];
-      if (e>=t0&&e<=t1){ const p=(e-t0)/(t1-t0); sy=y0+(y1-y0)*p; sx=x0+(x1-x0)*p; break; }
+function animateBounce(){
+  if(animId)cancelAnimationFrame(animId);
+  var start=performance.now();
+  var kf=[[0,1,1],[20,.89,1.1],[50,.94,1.05],[80,.98,1.01],[120,1.07,.94],[160,1.09,.92],[200,1.05,.95],[250,.96,1.025],[300,1.03,.975],[350,1.01,.99],[400,.995,1.003],[500,1.001,.999],[600,1,1]];
+  function frame(now){
+    var e=now-start;
+    if(e>=600){svg.style.transform='scale(1,1) translateY(0)';animId=null;return;}
+    var sy=1,sx=1;
+    for(var i=0;i<kf.length-1;i++){
+      var t0=kf[i][0],y0=kf[i][1],x0=kf[i][2],t1=kf[i+1][0],y1=kf[i+1][1],x1=kf[i+1][2];
+      if(e>=t0&&e<=t1){var p=(e-t0)/(t1-t0);sy=y0+(y1-y0)*p;sx=x0+(x1-x0)*p;break;}
     }
-    svg.style.transform = `scale(${sx},${sy}) translateY(${(1-sy)*35}px)`;
-    animId = requestAnimationFrame(frame);
+    svg.style.transform='scale('+sx+','+sy+') translateY('+((1-sy)*35)+'px)';
+    animId=requestAnimationFrame(frame);
   }
-  animId = requestAnimationFrame(frame);
+  animId=requestAnimationFrame(frame);
 }
 
 /* ====== 点击 ====== */
-badge.addEventListener('click', e => {
+badge.addEventListener('click', function(e){
   totalClicks++;
-  const points = getPoints(totalClicks);
-  const crit   = maybeCrit(totalClicks);
-  const earned = crit > 0 ? crit : points;
+
+  var now = performance.now();
+  var interval = lastClickTime ? now-lastClickTime : 9999;
+  lastClickTime = now;
+
+  if      (interval < 120) speedLevel = 4;
+  else if (interval < 200) speedLevel = 3;
+  else if (interval < 350) speedLevel = 2;
+  else if (interval < 600) speedLevel = 1;
+  else                     speedLevel = Math.max(0, speedLevel-0.5);
+
+  clearTimeout(decayTimer);
+  decayTimer = setTimeout(function(){ speedLevel = Math.max(0, speedLevel-1); }, 600);
+
+  var spd = Math.round(speedLevel);
+  var speedName = ['','🐢','🔥','⚡','👑'][spd]||'';
+
+  var points = getPoints(totalClicks);
+  var crit   = maybeCrit(totalClicks);
+  var earned = crit > 0 ? crit : points;
   totalTokens += earned;
 
   totalEl.textContent = fmt(totalTokens);
   pulseTotal();
 
-  // 浮动数字
   if (crit > 0) {
     critsThisSession++;
     spawnFloatCrit(e.clientX, e.clientY-10, crit);
+    playCritSound(crit, spd);
   } else {
     spawnFloat(e.clientX, e.clientY-10, points);
   }
 
-  // 顶部提示
+  if (totalClicks % 10 === 0) playComboSound();
+  playSpeedUpSound(spd);
+  playFlourish(spd);
+  if (spd <= 1) { playSpeedUpSound.prev = 0; }
+
   if (crit > 0) {
-    const critPhrases = [
-      '💥 卧槽 暴击!!',
-      '🔥 超级暴击!!!',
-      '⚡ 天选暴击!!!',
-      '🌟 欧皇暴击!!',
-      '💎 完美暴击!!',
-      '🎯 一击必暴!!!',
-      '🦄 离谱暴击!!',
-      '👑 帝王暴击!!',
-      '🚀 起飞暴击!!',
-      '💣 炸裂暴击!!',
-    ];
-    const idx = Math.floor(Math.random() * critPhrases.length);
-    comboEl.textContent = critPhrases[idx] + ' +' + fmt(crit);
+    var critPhrases = ['💥 卧槽 暴击!!','🔥 超级暴击!!!','⚡ 天选暴击!!!','🌟 欧皇暴击!!','💎 完美暴击!!','🎯 一击必暴!!!','🦄 离谱暴击!!','👑 帝王暴击!!','🚀 起飞暴击!!','💣 炸裂暴击!!'];
+    comboEl.textContent = critPhrases[Math.floor(Math.random()*critPhrases.length)] + ' +' + fmt(crit);
     comboEl.style.color = '#FF4500';
     comboEl.style.fontSize = '17px';
     comboEl.style.textShadow = '0 0 14px rgba(255,69,0,.7), 0 0 28px rgba(255,140,0,.4)';
@@ -358,47 +431,38 @@ badge.addEventListener('click', e => {
     void comboEl.offsetWidth;
     comboEl.style.animation = 'critShake .35s ease-out';
   } else if (totalClicks % 10 === 0) {
-    const comboPhrases = [
-      totalClicks + ' 连击! 🎵',
-      totalClicks + ' 连击! 🎶',
-      totalClicks + ' 连击~ 继续!' ,
-      totalClicks + ' 啪啪啪! 💪',
-      '连击 ×10! 🔥',
-      '手感火热! 🔥',
-    ];
-    comboEl.textContent = comboPhrases[(totalClicks/10) % comboPhrases.length];
-    comboEl.style.color = 'rgba(255,215,0,.75)';
-    comboEl.style.fontSize = '14px';
-    comboEl.style.textShadow = '0 0 8px rgba(255,215,0,.3)';
-    comboEl.style.fontWeight = 'normal';
+    var pool = spd >= 4 ? ['神速连击!! ✨','手速狂魔!! 💫','眼花缭乱!! 🌀','停不下来!! 🌪️'] :
+               spd >= 3 ? ['极速连击! ⚡','燃烧连击! 🔥','暴风连击! 💨'] :
+                          [totalClicks+' 连击! 🎵',totalClicks+' 连击! 🎶',totalClicks+' 连击~ 💪'];
+    comboEl.textContent = pool[Math.floor(Math.random()*pool.length)];
+    comboEl.style.color = spd >= 4 ? '#FFD700' : spd >= 3 ? '#FFA500' : 'rgba(255,215,0,.75)';
+    comboEl.style.fontSize = spd >= 3 ? '16px' : '14px';
+    comboEl.style.textShadow = '0 0 '+(spd>=3?'14':'8')+'px rgba(255,215,0,.3)';
+    comboEl.style.fontWeight = spd >= 3 ? '700' : 'normal';
   } else {
-    comboEl.textContent = '第' + totalClicks + '下 · 每击+' + fmt(points);
-    comboEl.style.color = 'rgba(255,255,255,.2)';
-    comboEl.style.fontSize = '11px';
-    comboEl.style.textShadow = 'none';
+    comboEl.textContent = '第' + totalClicks + '下' + (speedName?' '+speedName:'') + ' · 每击+' + fmt(points);
+    comboEl.style.color = spd >= 3 ? 'rgba(255,255,0,.6)' : 'rgba(255,255,255,.2)';
+    comboEl.style.fontSize = spd >= 3 ? '13px' : '11px';
+    comboEl.style.textShadow = spd >= 3 ? '0 0 6px rgba(255,255,0,.3)' : 'none';
     comboEl.style.fontWeight = 'normal';
   }
 
   triggerBlink();
   showBlush();
   animateBounce();
-  playCoin(earned);
-  playPop();
+  playCoin(earned, spd);
+  playPop(spd);
 });
 
 comboEl.textContent = '👆 点我点我！';
-comboEl.style.color = 'rgba(255,255,255,.25)';
-comboEl.style.fontSize = '12px';
+comboEl.style.color = 'rgba(255,255,255,.5)';
+comboEl.style.fontSize = '13px';
 </script>
 
 <script>
   if ('serviceWorker' in navigator) {
-    // 先干掉所有旧 Service Worker
-    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
-    // 等待清理完毕再注册新的
-    setTimeout(() => {
-      navigator.serviceWorker.register('service-worker.js?v=4');
-    }, 300);
+    navigator.serviceWorker.getRegistrations().then(function(regs){regs.forEach(function(r){r.unregister();});});
+    setTimeout(function(){navigator.serviceWorker.register('service-worker.js?v=99');},300);
   }
 </script>
 </body>
