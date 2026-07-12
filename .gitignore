@@ -1,1 +1,25 @@
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+*.zip
+*.tmp
+/build/
+/dist/
+
+# Android SDK (large binaries)
 android-sdk/
+
+# Local development server logs
+*.log
